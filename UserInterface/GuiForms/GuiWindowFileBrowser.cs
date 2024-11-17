@@ -59,6 +59,7 @@ public static class GuiWindowFileBrowser {
 
 	public enum DialogBoxes {
 		OpenMap,
+		ImportGlb,
 		ImportTexture,
 		ImportPalette,
 		SaveMapAs,
@@ -78,11 +79,13 @@ public static class GuiWindowFileBrowser {
 		{ DialogBoxes.ExportTexture, "Export Texture" },
 		{ DialogBoxes.ImportPalette, "Import Palette" },
 		{ DialogBoxes.ExportPalette, "Export Palette" },
+		{ DialogBoxes.ImportGlb, "Import GLB" },
 		{ DialogBoxes.ExportGlb, "Export GLB" }
 	};
 
 	private static readonly Dictionary<DialogBoxes, string> SelectionButtonLabels = new() {
 		{ DialogBoxes.OpenMap, "Open" },
+		{ DialogBoxes.ImportGlb, "Import" },
 		{ DialogBoxes.ImportPalette, "Import" },
 		{ DialogBoxes.ImportTexture, "Import" },
 		{ DialogBoxes.SaveMapAs, "Save" },
@@ -100,7 +103,8 @@ public static class GuiWindowFileBrowser {
 		{ DialogBoxes.ExportTexture, "png" },
 		{ DialogBoxes.ImportPalette, "act" },
 		{ DialogBoxes.ExportPalette, "act" },
-		{ DialogBoxes.ExportGlb, "gns" }
+		{ DialogBoxes.ExportGlb, "glb" },
+		{ DialogBoxes.ImportGlb, "glb" }
 	};
 
 	private static readonly List<DialogBoxes> BoxesWithInputText = new() {
@@ -522,6 +526,14 @@ public static class GuiWindowFileBrowser {
 						int.Parse(_additionalData["PaletteId"]),
 						_additionalData["PaletteType"]
 					);
+				}
+			}, {
+				DialogBoxes.ImportGlb,
+				() => {
+					Selection.SelectedPolygons.Clear();
+					Selection.HoveredPolygons.Clear();
+					Stage.Ganesha.PostponeRender(1);
+					MapData.ImportGlb(filePath);
 				}
 			}, {
 				DialogBoxes.SaveMapAs,

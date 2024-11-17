@@ -28,7 +28,7 @@ using VertexPosition = SharpGLTF.Geometry.VertexTypes.VertexPosition;
 namespace GaneshaDx.Common;
 
 public static class GlbExporter {
-	private const float ReduceScaleFactor = 50;
+	private const float ReduceScaleFactor = 1;
 
 	private static readonly List<Color> GreyPalette = new() {
 		Utilities.GetColorFromHex("000000"),

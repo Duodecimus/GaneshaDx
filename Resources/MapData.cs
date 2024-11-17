@@ -6,12 +6,15 @@ using GaneshaDx.Common;
 using GaneshaDx.Environment;
 using GaneshaDx.Rendering;
 using GaneshaDx.Resources.ContentDataTypes.Palettes;
+using GaneshaDx.Resources.ContentDataTypes.Polygons;
 using GaneshaDx.Resources.GnsData;
 using GaneshaDx.Resources.ResourceContent;
 using GaneshaDx.UserInterface;
 using GaneshaDx.UserInterface.GuiDefinitions;
 using GaneshaDx.UserInterface.GuiForms;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using SharpGLTF.Schema2;
 
 namespace GaneshaDx.Resources;
 
@@ -175,6 +178,32 @@ public static class MapData {
 	public static void ExportGlb(string filePath) {
 		GlbExporter.Export(filePath);
 		OverlayConsole.AddMessage("Map Exported as " + filePath);
+	}
+
+	public static void ImportGlb(string filePath) {
+		//GlbImporter.Import(filePath);
+		var importedModel = SharpGLTF.Schema2.ModelRoot.Load(filePath);
+
+		const float ScaleFactor = 1;
+
+		CurrentMapState.StateData.PolygonCollectionBucket.Clear();
+		foreach (var primitive in importedModel.LogicalMeshes[0].Primitives)  {
+			var triangles = primitive.EvaluateTriangles().ToList();
+			foreach (var (A, B, C, Material) in triangles) {
+				List<Vertex> verticesToBuild = new() {
+					new Vertex(B.GetGeometry().GetPosition()*ScaleFactor, Color.Red, true),
+					new Vertex(A.GetGeometry().GetPosition()*ScaleFactor, Color.Green, true),
+					new Vertex(C.GetGeometry().GetPosition()*ScaleFactor, Color.Blue, true),
+				};
+				List<Vector2> uvs = new() { //TODO import actual texture from GLB
+					new Vector2(0, 0),
+					new Vector2(0, 250),
+					new Vector2(250, 0)
+				};
+
+				CurrentMapState.CreatePolygon(verticesToBuild, uvs, MeshType.PrimaryMesh);
+			}
+		}
 	}
 
 	public static void ImportTexture(string filePath) {

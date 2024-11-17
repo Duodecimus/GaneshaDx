@@ -298,6 +298,10 @@ public static class AppShortcuts {
 					Gui.ShowExportGlbWindow = !Gui.ShowExportGlbWindow;
 				}
 
+				if (AppInput.KeyJustPressed(Keys.I)) {
+					GuiWindowFileBrowser.Open(GuiWindowFileBrowser.DialogBoxes.ImportGlb);
+				}
+
 				if (AppInput.KeyJustPressed(Keys.A)) {
 					if (Gui.SelectedTab != RightPanelTab.Terrain) {
 						Selection.SelectOverlappingPolygons();

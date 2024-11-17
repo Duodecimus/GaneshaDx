@@ -140,6 +140,10 @@ public static class GuiMenuBar {
 					Gui.ShowExportGlbWindow = !Gui.ShowExportGlbWindow;
 				}
 
+				if (ImGui.MenuItem("Import from GLB", "Ctrl + Shift + I", false, MapData.MapIsLoaded)) {
+					GuiWindowFileBrowser.Open(GuiWindowFileBrowser.DialogBoxes.ImportGlb);
+				}
+
 				ImGui.EndMenu();
 			}
 
