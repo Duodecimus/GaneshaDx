@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using GaneshaDx.Common;
@@ -35,7 +36,7 @@ public static class MapData {
 	public static void ReloadCurrentMap() {
 		LoadMapDataFromFullPath(_mapFolder + "\\" + MapName + ".gns");
 	}
-	
+
 	public static void LoadMapDataFromFullPath(string gnsPath) {
 		List<string> pathSegments = gnsPath.Split('\\').ToList();
 		string fileName = pathSegments.Last();
@@ -183,42 +184,43 @@ public static class MapData {
 	}
 
 	public static void ImportGlb(string filePath) {
+		Stopwatch stopwatch = Stopwatch.StartNew();
 		var importedModel = SharpGLTF.Schema2.ModelRoot.Load(filePath);
 		foreach (MeshType meshtype in Enum.GetValues(typeof(MeshType))) {
 			CurrentMapState.DeleteAllPolygons(meshtype); //TODO: ask the user first
 		}
-		
+
 		const float ScaleFactor = 1; //TODO: ask the user on import how many terrain tiles wide the import is, then resize during import
 
-		if (importedModel.LogicalImages.Count > 0 ) {
-			List<Tuple<Color, Tuple<int, int>>> paletteSourcePixels = new List<Tuple<Color, Tuple<int, int>>>();
-			Palette importedPalette = new Palette();
-			for (int i = 0; i <  importedModel.LogicalImages.Count; i++) {
+		if (importedModel.LogicalImages.Count > 0) {
+			List<Tuple<Color, Tuple<int, int>>> paletteSourcePixels = new();
+			Palette importedPalette;
+			for (int i = 0; i < importedModel.LogicalImages.Count; i++) {
 				var texture = importedModel.LogicalImages[i];
 				Stream stream = texture.Content.Open();
 				Texture2D importedTexture = Texture2D.FromStream(Stage.GraphicsDevice, stream);
 				stream.Dispose();
 				//TODO: Ask the user if they want to import the texture or palettes
-				if(i == 0) { //Assume the first texture found is the main texture, import it and create palette key
-					var QuantizedTexture = QuantizeToPaletteAndListPixels(importedTexture, out importedPalette, out paletteSourcePixels);
+				if (i == 0) { //Assume the first texture found is the main texture, import it and create palette key
+					var QuantizedTexture = Quantizer.QuantizeToPaletteAndListPixels(importedTexture, out importedPalette, out paletteSourcePixels);
 					ImportPalette(importedPalette, i, "main");
-					ImportTexture(QuantizedTexture);
+					ImportTexture(QuantizedTexture, true);
 				}
 				else { //Further textures assumed to be alt colors of the main texture. Use the palette key to quickly grab another palette
-					   //TODO: odds are the second of of these is a normal map. Do something with it
+					   //TODO: odds are one of of these is a normal map. Do something with it
 					importedPalette = GetPaletteWithSourcePixels(importedTexture, paletteSourcePixels);
 					ImportPalette(importedPalette, i, "main");
 				}
 
-				stream = File.Create(filePath+".ImportedTexture"+i+".png");
-				importedTexture.SaveAsPng(stream, importedTexture.Width, importedTexture.Height);
-				stream.Dispose();
+				//stream = File.Create(filePath+".ImportedTexture"+i+".png");
+				//importedTexture.SaveAsPng(stream, importedTexture.Width, importedTexture.Height);
+				//stream.Dispose();
 			}
 		}
 
 		if (importedModel.LogicalMeshes.Count > 0) { //TODO: GLB files can't have quads, would need to add new import/export for obj or something
 			var TriCount = 0;
-			for (int i = 0; i < importedModel.LogicalMeshes.Count; i++) { 
+			for (int i = 0; i < importedModel.LogicalMeshes.Count; i++) {
 				foreach (var primitive in importedModel.LogicalMeshes[i].Primitives) {
 					var triangles = primitive.EvaluateTriangles().ToList();
 					foreach (var (A, B, C, Material) in triangles) {
@@ -230,20 +232,13 @@ public static class MapData {
 						};
 						var offset = 0;
 						var yTest = (B.GetMaterial().GetTexCoord(0).Y * 1024);
-						switch (yTest) { //determine which page the tri belongs on
-							default: //<= 256
-								offset = 0;
-								break;
-							case > 256 and <= 512:
-								offset = 256;
-								break;
-							case > 512 and <= 768:
-								offset = 512;
-								break;
-							case > 768 and <= 1024:
-								offset = 768;
-								break;
-						}
+						offset = yTest switch { //determine which page the tri belongs on
+							> 256 and <= 512 => 256,
+							> 512 and <= 768 => 512,
+							> 768 and <= 1024 => 768,
+							//<= 256
+							_ => 0,
+						};
 						List<Vector2> uvs = new() {//TODO: FFT probably breaks if a tri/quad crosses multiple pages, add a safety check to rebuild the tri safely
 							new Vector2(MathF.Round(B.GetMaterial().GetTexCoord(0).X*256),
 										MathF.Round(B.GetMaterial().GetTexCoord(0).Y*1024 - offset)),
@@ -256,187 +251,20 @@ public static class MapData {
 						//		Offset model to have 0,0,0 to the bottom left of the model.
 						//		Implement function to upscale the model, ask the user how many terrain tiles wide it should be
 						Polygon poly = CurrentMapState.CreatePolygon(verticesToBuild, uvs, MeshType.PrimaryMesh);
-						switch (offset) {
-							default: //0
-								poly.TexturePage = 0;
-								break;
-							case 256:
-								poly.TexturePage = 1;
-								break;
-							case 512:
-								poly.TexturePage = 2;
-								break;
-							case 768:
-								poly.TexturePage = 3;
-								break;
-						}
-
+						poly.TexturePage = offset switch {
+							256 => 1,
+							512 => 2,
+							768 => 3,
+							//0
+							_ => 0,
+						};
 						poly.PaletteId = Material.LogicalIndex; //Set the tri to be a palette id, this matches the import order of textures 
 					}
 				}
 			}
 		}
-	}
-
-	public static Texture2D QuantizeToPaletteAndListPixels(Texture2D importedTexture, out Palette importedPalette, out List<Tuple<Color, Tuple<int, int>>> paletteSourcePixels) {
-		//Initialize the lists
-		importedPalette = new Palette();
-		var ListGreyscale = new List<int> {0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255};
-
-		//Extract all pixels from the original texture
-		Color[] originalPixels = new Color[importedTexture.Width * importedTexture.Height];
-		importedTexture.GetData(originalPixels);
-
-		//Quantize the colors to 16 colors
-		List<Color> allColors = originalPixels.ToList();
-		List<Color> quantizedColors = new List<Color>();
-		paletteSourcePixels = QuantizeColors(allColors, 16, importedTexture.Width);
-
-		//pull out the colors for better list searching, and create the palette
-		foreach(Tuple<Color,Tuple<int,int>> Color in paletteSourcePixels) {
-			quantizedColors.Add(Color.Item1);
-			if (Color.Item1.A == 0) {
-				importedPalette.Colors.Add(new PaletteColor(0, 0, 0, true)); //actually tranparent pixels must be black
-			}
-			else { 
-				importedPalette.Colors.Add(new PaletteColor(Color.Item1.R/8, Color.Item1.G/8, Color.Item1.B/8, false)); 
-			}
-		}
-
-		// Create a map of coordinates for each quantized color
-		// Replace original colors with the closest color in the quantized palette
-		List<Color> quantizedPixels = new List<Color>();
-		List<Color> greyscalePixels = new List<Color>();
-
-		HashSet<Color> addedColors = new HashSet<Color>();
-
-		// Loop through each pixel
-		for (int y = 0; y < importedTexture.Height; y++) {
-			for (int x = 0; x < importedTexture.Width; x++) {
-				// Get the color of the current pixel
-				Color originalColor = originalPixels[y * importedTexture.Width + x];
-				//Get the palette color it is closest to
-				Color closestColor = FindClosestColor(originalColor, quantizedColors);
-				//Get the index in the palette of that color
-				int index = quantizedColors.FindIndex(pixel => pixel.Equals(closestColor));
-				//Use the index to instead change to greyscale
-				quantizedPixels.Add(closestColor);
-				greyscalePixels.Add(new Color(ListGreyscale[index], ListGreyscale[index], ListGreyscale[index]));
-			}
-		}
-
-		Texture2D greyscaleTexture = new Texture2D(Stage.GraphicsDevice, importedTexture.Width, importedTexture.Height);
-		greyscaleTexture.SetData(greyscalePixels.ToArray());
-
-		//Stream stream = File.Create("greyscaleTexture.png");
-		//greyscaleTexture.SaveAsPng(stream, importedTexture.Width, importedTexture.Height);
-		//stream.Dispose();
-
-		return greyscaleTexture;
-	}
-
-	//Find the closest color from the quantized palette
-	private static Color FindClosestColor(Color targetColor, List<Color> palette) {
-		return palette.OrderBy(p => Math.Pow(targetColor.R - p.R, 2) +
-									  Math.Pow(targetColor.G - p.G, 2) +
-									  Math.Pow(targetColor.B - p.B, 2))
-					  .First();
-	}
-
-	//KMeans-based quantization function
-	//TODO: this funtion is real slow, fix that 
-	public static List<Tuple<Color, Tuple<int, int>>> QuantizeColors(List<Color> colors, int numColors, int width) {
-		//Convert the colors to a list of RGB values
-		//Ganesha only supports colors that are multiples of 8, so clean up 
-		List<Tuple<int, int, int>> colorList = colors.Select(c => Tuple.Create(((int)c.R+3) / 8 * 8, ((int)c.G + 3) / 8 * 8, ((int)c.B + 3) / 8 * 8)).ToList();
-
-		//Apply KMeans clustering to get the centroids (the quantized colors)
-		var centroids = KMeans(colorList, numColors);
-
-		//Find the closest centroid for each color and track the first occurrence
-		List<Tuple<Color, Tuple<int, int>>> quantizedColorsWithCoordinates = new List<Tuple<Color, Tuple<int, int>>>();
-		Dictionary<Color, Tuple<int, int>> firstOccurrence = new Dictionary<Color, Tuple<int, int>>();
-
-		for (int i = 0; i < colors.Count; i++) {
-			Color color = colors[i];
-			Tuple<int, int, int> colorTuple = Tuple.Create((int)color.R, (int)color.G, (int)color.B);
-
-			//Find the closest centroid for the current color
-			var closestCentroid = centroids
-				.OrderBy(c => GetDistance(c.Item1, c.Item2, c.Item3, color.R, color.G, color.B))
-				.First();
-
-			Color quantizedColor = new Color(closestCentroid.Item1, closestCentroid.Item2, closestCentroid.Item3);
-
-			//Track the first occurrence of each color
-			if (!firstOccurrence.ContainsKey(quantizedColor)) {
-				int x = i % width; //X-coordinate in the image
-				int y = i / width; //Y-coordinate in the image
-				firstOccurrence[quantizedColor] = new Tuple<int, int>(x, y);
-			}
-		}
-
-		//Create the final list of quantized colors with their first occurrences
-		foreach (var color in firstOccurrence) {
-			quantizedColorsWithCoordinates.Add(new Tuple<Color, Tuple<int, int>>(color.Key, color.Value));
-		}
-
-		return quantizedColorsWithCoordinates;
-	}
-
-	//KMeans algorithm to find the centroids
-	private static List<Tuple<int, int, int>> KMeans(List<Tuple<int, int, int>> colors, int k) {
-		//Initialize random centroids from the colors
-		Random rand = new Random();
-		var centroids = colors.OrderBy(x => rand.Next()).Take(k).ToList();
-
-		bool centroidsChanged;
-		List<int> labels = new List<int>(new int[colors.Count]);
-
-		do {
-			centroidsChanged = false;
-
-			//Assign each color to the nearest centroid
-			for (int i = 0; i < colors.Count; i++) {
-				int closestCentroidIndex = FindClosestCentroid(colors[i], centroids);
-				if (labels[i] != closestCentroidIndex) {
-					labels[i] = closestCentroidIndex;
-					centroidsChanged = true;
-				}
-			}
-
-			//Recalculate centroids
-			for (int i = 0; i < k; i++) {
-				var assignedColors = colors.Where((c, index) => labels[index] == i).ToList();
-				if (assignedColors.Count > 0) {
-					var newCentroid = CalculateCentroid(assignedColors);
-					centroids[i] = newCentroid;
-				}
-			}
-		} while (centroidsChanged);
-
-		return centroids;
-	}
-
-	//Find the closest centroid to a given color
-	private static int FindClosestCentroid(Tuple<int, int, int> color, List<Tuple<int, int, int>> centroids) {
-		return centroids
-			.Select((centroid, index) => new { Centroid = centroid, Index = index, Distance = GetDistance(centroid.Item1, centroid.Item2, centroid.Item3, color.Item1, color.Item2, color.Item3) })
-			.OrderBy(x => x.Distance)
-			.First().Index;
-	}
-
-	//Calculate the Euclidean distance between two RGB colors
-	private static double GetDistance(int r1, int g1, int b1, int r2, int g2, int b2) {
-		return Math.Sqrt(Math.Pow(r1 - r2, 2) + Math.Pow(g1 - g2, 2) + Math.Pow(b1 - b2, 2));
-	}
-
-	//Calculate the centroid of a list of colors
-	private static Tuple<int, int, int> CalculateCentroid(List<Tuple<int, int, int>> colors) {
-		int r = (int)colors.Average(c => c.Item1);
-		int g = (int)colors.Average(c => c.Item2);
-		int b = (int)colors.Average(c => c.Item3);
-		return Tuple.Create(r, g, b);
+		stopwatch.Stop();
+		OverlayConsole.AddMessage($"GLB imported in {stopwatch.ElapsedMilliseconds} ms");
 	}
 
 	//Use the palette key to quickly grab the equivalent colors that were chosen as palette colors in the base image
@@ -453,21 +281,22 @@ public static class MapData {
 				palette.Colors.Add(new PaletteColor(0, 0, 0, true));
 			}
 			else {
-				palette.Colors.Add(new PaletteColor((originalPixel.R+3)/8, (originalPixel.B+3)/8, (originalPixel.G+3)/8, false));
+				palette.Colors.Add(new PaletteColor((originalPixel.R+3)/8, (originalPixel.G+3)/8, (originalPixel.B+3)/8, false));
 			}
 		}
 		return palette;
 	}
 
 	//Resizes a Texture2D to a new size. GaneshaDX operates on 256x1024 textures
+
 	public static Texture2D ResizeTexture(Texture2D texture2D,int targetX,int targetY) {
 
-		RenderTarget2D renderTarget = new RenderTarget2D(Stage.GraphicsDevice, targetX, targetY);
+		RenderTarget2D renderTarget = new(Stage.GraphicsDevice, targetX, targetY);
 	
 		Stage.GraphicsDevice.SetRenderTarget(renderTarget);
 		Stage.GraphicsDevice.Clear(Color.Transparent);
 
-		SpriteBatch batch = new SpriteBatch(Stage.GraphicsDevice);
+		SpriteBatch batch = new(Stage.GraphicsDevice);
 		batch.Begin();
 		batch.Draw(texture2D, new Rectangle(0, 0, targetX, targetY), Color.White);
 		batch.End();
@@ -485,9 +314,7 @@ public static class MapData {
 	public static void ImportTexture(Texture2D importedTexture, Boolean Quantized = true) {
 		Texture2D resizedTexture;
 		if (!Quantized) {
-			List<Tuple<Color, Tuple<int, int>>> paletteSourcePixels = new List<Tuple<Color, Tuple<int, int>>>();
-			Palette importedPalette = new Palette();
-			var quantizedTexture = QuantizeToPaletteAndListPixels(importedTexture, out importedPalette, out paletteSourcePixels);
+			var quantizedTexture = Quantizer.QuantizeToPaletteAndListPixels(importedTexture, out Palette importedPalette, out _);
 			ImportPalette(importedPalette, 0, "main"); //TODO: ask user where to import the palette, or to ignore it
 			resizedTexture = ResizeTexture(quantizedTexture, 256, 1024);
 		}
