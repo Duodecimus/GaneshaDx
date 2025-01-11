@@ -51,7 +51,7 @@ public class Quantizer {
 
 		// Create a map of coordinates for each quantized color
 		// Replace original colors with the closest color in the quantized palette
-		List<Color> quantizedPixels = new();
+		//List<Color> quantizedPixels = new();
 		List<Color> greyscalePixels = new();
 
 		HashSet<Color> addedColors = new();
@@ -66,7 +66,7 @@ public class Quantizer {
 				//Get the index in the palette of that color
 				int index = quantizedColors.FindIndex(pixel => pixel.Equals(closestColor));
 				//Use the index to instead change to greyscale
-				quantizedPixels.Add(closestColor);
+				//quantizedPixels.Add(closestColor);
 				greyscalePixels.Add(new Color(ListGreyscale[index], ListGreyscale[index], ListGreyscale[index]));
 			}
 		}

@@ -12,9 +12,9 @@ namespace GaneshaDx.Common {
 		/// <returns></returns>
 		public static (Vector3 translation, Matrix4x4 rotationMatrix, float scaleFactor) GetTerrainReferenceTransformation(List<Vector3> points) {
 
-			var translation = Vector3.Zero;
-			var rotationMatrix = Matrix4x4.Identity;
-			float scaleFactor = 1;
+			Vector3 translation;
+			Matrix4x4 rotationMatrix;
+			float scaleFactor;
 			if (points.Count == 2) { //Untested
 				//Not sure if possible to do in GLBs, I couldn't get blender to export a GLB with an object of only a line
 				Vector3 p0;
@@ -36,6 +36,7 @@ namespace GaneshaDx.Common {
 
 				float currentDistance = Vector3.Distance(p0, p1);
 				scaleFactor = 28f / currentDistance;
+				p0 *= scaleFactor;
 				p1 *= scaleFactor;
 
 				// Rotate p1 to align it with (28, p0.Y, 0)
@@ -53,6 +54,15 @@ namespace GaneshaDx.Common {
 
 				// Create the rotation matrix using axis-angle representation
 				rotationMatrix = Matrix4x4.CreateFromAxisAngle(rotationAxis, angle);
+
+				p0 = Vector3.Transform(p0, rotationMatrix);
+				p1 = Vector3.Transform(p1, rotationMatrix);
+
+				if (float.IsNaN(p0.X) || float.IsNaN(p0.Y) || float.IsNaN(p0.Z) ||
+					float.IsNaN(p1.X) || float.IsNaN(p1.Y) || float.IsNaN(p1.Z)) {
+					OverlayConsole.AddMessage($"Failed to apply terrain reference, transform produced a NaN");
+					return (Vector3.Zero, Matrix4x4.Identity, 1);
+				}
 				return (translation, rotationMatrix, scaleFactor);
 			}
 			else {
@@ -83,17 +93,19 @@ namespace GaneshaDx.Common {
 
 				try {
 					point0 = FindRightAngle(points);
+					points.Remove(point0);
+
 				}
 				catch (Exception) {
 					OverlayConsole.AddMessage($"Failed to apply terrain reference, Shape not a line or a right angle");
-					return (translation, rotationMatrix, scaleFactor);
+					return (Vector3.Zero, Matrix4x4.Identity, 1);
 				}
 
 				// Translate the triangle so the right-angle vertex is at (0, point0.Y, 0)
 				translation = new Vector3(-point0.X, 0, -point0.Z); // Translate only in X and Z, keeping Y the same
 				point0 += translation;
-				var point1 = points[1] + translation;
-				var point2 = points[2] + translation;
+				var point1 = points[0] + translation;
+				var point2 = points[1] + translation;
 
 				//identify which arm will end up on which axis
 				var (pointX, pointZ) = GetTriangleArms(point0, point1, point2);
@@ -127,12 +139,30 @@ namespace GaneshaDx.Common {
 				Vector3 directionTargetPointZ = targetPointZ - point0;
 				Matrix4x4 rotationMatrixPointZ = GetRotationMatrix(directionPointZ, directionTargetPointZ);
 
-				//point0 = Vector3.Transform(point0, rotationMatrixPointX * rotationMatrixPointZ);
-				//pointX = Vector3.Transform(pointX, rotationMatrixPointX * rotationMatrixPointZ);
-				//pointZ = Vector3.Transform(pointZ, rotationMatrixPointX * rotationMatrixPointZ);
+				point0 = Vector3.Transform(point0, rotationMatrixPointX * rotationMatrixPointZ);
+				pointX = Vector3.Transform(pointX, rotationMatrixPointX * rotationMatrixPointZ);
+				pointZ = Vector3.Transform(pointZ, rotationMatrixPointX * rotationMatrixPointZ);
 
 				// Combine rotations (first rotate pointX, then pointZ)
 				rotationMatrix = rotationMatrix * rotationMatrixPointX * rotationMatrixPointZ;
+
+
+				// For some reason the model is rotated an additional 90 degrees when it gets rendered. This is thus a quick fix to make it render right
+				//TODO: Figure out why it does this and if there is a better fix
+				var bandaidRotation = Matrix4x4.CreateRotationY(-90f * (MathF.PI / 180f), Vector3.Zero);
+
+				point0 = Vector3.Transform(point0, bandaidRotation);
+				pointX = Vector3.Transform(pointX, bandaidRotation);
+				pointZ = Vector3.Transform(pointZ, bandaidRotation);
+
+				if (float.IsNaN(point0.X) || float.IsNaN(point0.Y) || float.IsNaN(point0.Z) ||
+					float.IsNaN(pointX.X) || float.IsNaN(pointX.Y) || float.IsNaN(pointX.Z) ||
+					float.IsNaN(pointZ.X) || float.IsNaN(pointZ.Y) || float.IsNaN(pointZ.Z)) {
+					OverlayConsole.AddMessage($"Failed to apply terrain reference, transform produced a NaN");
+					return (Vector3.Zero, Matrix4x4.Identity, 1);
+				}
+
+				rotationMatrix *= bandaidRotation;
 				return (translation, rotationMatrix, scaleFactor);
 			}
 		}
