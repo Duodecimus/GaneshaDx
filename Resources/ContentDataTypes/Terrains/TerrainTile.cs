@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Xml.Serialization;
 using GaneshaDx.Common;
 using GaneshaDx.Environment;
 using GaneshaDx.UserInterface;
@@ -8,34 +9,70 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace GaneshaDx.Resources.ContentDataTypes.Terrains;
 
+[XmlRoot("TerrainTile")]
 public class TerrainTile {
+	[XmlElement("SurfaceType")]
+	//[XmlEnum("SurfaceType")]
 	public TerrainSurfaceType SurfaceType;
+
+	[XmlElement("Shading")]
 	public int Shading;
+	[XmlElement("Height")]
 	public int Height;
+	[XmlElement("Depth")]
 	public int Depth;
+	[XmlElement("SlopeHeight")]
 	public int SlopeHeight;
+	[XmlElement("SlopeType")]
+	//[XmlEnum("SlopeType")]
 	public TerrainSlopeType SlopeType;
+
+	[XmlElement("PassThroughOnly")]
 	public bool PassThroughOnly;
+	[XmlElement("Impassable")]
 	public bool Impassable;
+	[XmlElement("Unselectable")]
 	public bool Unselectable;
+	[XmlElement("IndexZ")]
 	public int IndexZ;
+	[XmlElement("IndexX")]
 	public int IndexX;
+	[XmlElement("Level")]
 	public int Level;
-	public List<Vector3> Vertices = new() { Vector3.Zero, Vector3.Zero, Vector3.Zero, Vector3.Zero };
+	[XmlArray("Vertices")]
+	[XmlArrayItem("Vertex")]
+	public List<Vector3> Vertices;
+
+	[XmlElement("RotatesNorthwestTop")]
 	public bool RotatesNorthwestTop;
+	[XmlElement("RotatesSouthwestTop")]
 	public bool RotatesSouthwestTop;
+	[XmlElement("RotatesSoutheastTop")]
 	public bool RotatesSoutheastTop;
+	[XmlElement("RotatesNortheastTop")]
 	public bool RotatesNortheastTop;
+	[XmlElement("RotatesNorthwestBottom")]
 	public bool RotatesNorthwestBottom;
+	[XmlElement("RotatesSouthwestBottom")]
 	public bool RotatesSouthwestBottom;
+	[XmlElement("RotatesSoutheastBottom")]
 	public bool RotatesSoutheastBottom;
+	[XmlElement("RotatesNortheastBottom")]
 	public bool RotatesNortheastBottom;
+
+	[XmlElement("Unknown0A")]
 	public int Unknown0A;
+	[XmlElement("Unknown0B")]
 	public int Unknown0B;
+	[XmlElement("Unknown1")]
 	public int Unknown1;
+	[XmlElement("Unknown5")]
 	public int Unknown5;
+	[XmlElement("Unknown6B")]
 	public bool Unknown6B;
+	[XmlElement("Unknown6C")]
 	public bool Unknown6C;
+	[XmlElement("Unknown6D")]
 	public bool Unknown6D;
 
 

@@ -1,12 +1,19 @@
 ﻿using System.Collections.Generic;
+using System.Xml.Serialization;
 
 namespace GaneshaDx.Resources.ContentDataTypes.Terrains;
 
+[XmlRoot("Terrain")]
 public class Terrain {
+	[XmlElement("SizeX")]
 	public int SizeX;
+	[XmlElement("SizeZ")]
 	public int SizeZ;
-
+	[XmlArray("Level0Tiles")]
+	[XmlArrayItem("Tile")]
 	public List<List<TerrainTile>> Level0Tiles = new();
+	[XmlArray("Level1Tiles")]
+	[XmlArrayItem("Tile")]
 	public List<List<TerrainTile>> Level1Tiles = new();
 
 	public void Render() {

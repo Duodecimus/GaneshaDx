@@ -62,11 +62,13 @@ public static class GuiWindowFileBrowser {
 		ImportGlb,
 		ImportTexture,
 		ImportPalette,
+		ImportTerrainXML,
 		SaveMapAs,
 		ExportGlb,
 		ExportTexture,
 		ExportUvMap,
-		ExportPalette
+		ExportPalette,
+		ExportTerrainXML
 	}
 
 	private static DialogBoxes _dialogBox = DialogBoxes.OpenMap;
@@ -80,7 +82,9 @@ public static class GuiWindowFileBrowser {
 		{ DialogBoxes.ImportPalette, "Import Palette" },
 		{ DialogBoxes.ExportPalette, "Export Palette" },
 		{ DialogBoxes.ImportGlb, "Import GLB" },
-		{ DialogBoxes.ExportGlb, "Export GLB" }
+		{ DialogBoxes.ExportGlb, "Export GLB" },
+		{ DialogBoxes.ImportTerrainXML, "Import Terrain XML" },
+		{ DialogBoxes.ExportTerrainXML, "Export Terrain XML" }
 	};
 
 	private static readonly Dictionary<DialogBoxes, string> SelectionButtonLabels = new() {
@@ -88,11 +92,13 @@ public static class GuiWindowFileBrowser {
 		{ DialogBoxes.ImportGlb, "Import" },
 		{ DialogBoxes.ImportPalette, "Import" },
 		{ DialogBoxes.ImportTexture, "Import" },
+		{ DialogBoxes.ImportTerrainXML, "Import" },
 		{ DialogBoxes.SaveMapAs, "Save" },
 		{ DialogBoxes.ExportGlb, "Export" },
 		{ DialogBoxes.ExportTexture, "Export" },
 		{ DialogBoxes.ExportUvMap, "Export" },
 		{ DialogBoxes.ExportPalette, "Export" },
+		{ DialogBoxes.ExportTerrainXML, "Export" },
 	};
 
 	private static readonly Dictionary<DialogBoxes, string> DialogBoxFilters = new() {
@@ -104,7 +110,9 @@ public static class GuiWindowFileBrowser {
 		{ DialogBoxes.ImportPalette, "act" },
 		{ DialogBoxes.ExportPalette, "act" },
 		{ DialogBoxes.ExportGlb, "glb" },
-		{ DialogBoxes.ImportGlb, "glb" }
+		{ DialogBoxes.ImportGlb, "glb" },
+		{ DialogBoxes.ImportTerrainXML, "xml" },
+		{ DialogBoxes.ExportTerrainXML, "xml" }
 	};
 
 	private static readonly List<DialogBoxes> BoxesWithInputText = new() {
@@ -113,6 +121,7 @@ public static class GuiWindowFileBrowser {
 		DialogBoxes.ExportPalette,
 		DialogBoxes.ExportTexture,
 		DialogBoxes.ExportUvMap,
+		DialogBoxes.ExportTerrainXML,
 	};
 
 	public static void Render() {
@@ -535,6 +544,11 @@ public static class GuiWindowFileBrowser {
 					Stage.Ganesha.PostponeRender(1);
 					MapData.ImportGlb(filePath);
 				}
+			},{
+				DialogBoxes.ImportTerrainXML,
+				() => {
+					MapData.ImportTerrainXML(filePath);
+				}
 			}, {
 				DialogBoxes.SaveMapAs,
 				() => {
@@ -558,6 +572,18 @@ public static class GuiWindowFileBrowser {
 					}
 
 					MapData.ExportGlb(CurrentFullPath + "\\" + _selectedFile);
+				}
+			},  {
+				DialogBoxes.ExportTerrainXML,
+				() => {
+					string mapName = _selectedFile;
+					List<string> fileNameSegments = mapName.Split('.').ToList();
+
+					if (fileNameSegments.Last().ToLower() != "xml") {
+						_selectedFile += ".xml";
+					}
+
+					MapData.ExportTerrainXML(CurrentFullPath + "\\" + _selectedFile);
 				}
 			}, {
 				DialogBoxes.ExportTexture,

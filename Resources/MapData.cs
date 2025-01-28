@@ -7,6 +7,7 @@ using GaneshaDx.Common;
 using GaneshaDx.Environment;
 using GaneshaDx.Rendering;
 using GaneshaDx.Resources.ContentDataTypes.Palettes;
+using GaneshaDx.Resources.ContentDataTypes.Terrains;
 using GaneshaDx.Resources.GnsData;
 using GaneshaDx.Resources.ResourceContent;
 using GaneshaDx.UserInterface;
@@ -184,10 +185,28 @@ public static class MapData {
 		stopwatch.Stop();
 		OverlayConsole.AddMessage($"GLB imported in {stopwatch.ElapsedMilliseconds} ms");
 	}
-	
+
 	public static void ImportTexture(string filePath) {
 		Texture2D importedTexture = Texture2D.FromFile(Stage.GraphicsDevice, filePath);
 		TextureImport.ImportTexture(importedTexture, false);
+	}
+
+	public static void ExportTerrainXML(string filePath) {
+		TerrainXMLSerializer.SaveTerrainToXml(CurrentMapState.StateData.Terrain, filePath);
+
+		OverlayConsole.AddMessage($"Terrain saved to {filePath}");
+	}
+
+	public static void ImportTerrainXML(string filePath) {
+		Terrain terrain = TerrainXMLSerializer.LoadTerrainFromXml(filePath);
+
+		if (terrain != null) {
+			Console.WriteLine("Terrain successfully loaded.");
+			CurrentMapState.StateData.Terrain = terrain;
+		}
+		else {
+			Console.WriteLine("Failed to load terrain.");
+		}
 	}
 
 	public static void ExportTexture(string filePath) {

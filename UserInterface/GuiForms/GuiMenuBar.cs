@@ -143,6 +143,15 @@ public static class GuiMenuBar {
 				if (ImGui.MenuItem("Export to GLB", "Ctrl + Shift + E", Gui.ShowExportGlbWindow, MapData.MapIsLoaded)) {
 					Gui.ShowExportGlbWindow = !Gui.ShowExportGlbWindow;
 				}
+				ImGui.Separator();
+
+				if (ImGui.MenuItem("Import Terrain from XML", "", false, MapData.MapIsLoaded)) {
+					GuiWindowFileBrowser.Open(GuiWindowFileBrowser.DialogBoxes.ImportTerrainXML);
+				}
+
+				if (ImGui.MenuItem("Export Terrain to XML", "", false, MapData.MapIsLoaded)) {
+					GuiWindowFileBrowser.Open(GuiWindowFileBrowser.DialogBoxes.ExportTerrainXML);
+				}
 
 				ImGui.EndMenu();
 			}
