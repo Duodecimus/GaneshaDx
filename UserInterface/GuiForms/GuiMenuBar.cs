@@ -136,12 +136,12 @@ public static class GuiMenuBar {
 
 				ImGui.Separator();
 
-				if (ImGui.MenuItem("Export to GLB", "Ctrl + Shift + E", Gui.ShowExportGlbWindow, MapData.MapIsLoaded)) {
-					Gui.ShowExportGlbWindow = !Gui.ShowExportGlbWindow;
-				}
-
 				if (ImGui.MenuItem("Import from GLB", "Ctrl + Shift + I", false, MapData.MapIsLoaded)) {
 					GuiWindowFileBrowser.Open(GuiWindowFileBrowser.DialogBoxes.ImportGlb);
+				}
+
+				if (ImGui.MenuItem("Export to GLB", "Ctrl + Shift + E", Gui.ShowExportGlbWindow, MapData.MapIsLoaded)) {
+					Gui.ShowExportGlbWindow = !Gui.ShowExportGlbWindow;
 				}
 
 				ImGui.EndMenu();
