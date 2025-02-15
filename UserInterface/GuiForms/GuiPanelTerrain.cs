@@ -685,6 +685,12 @@ public static class GuiPanelTerrain {
 			}
 
 			ImGui.Unindent();
+
+			GuiStyle.AddSpace();
+
+			if (ImGui.Button("Generate Terrain")) {
+				GenerateTerrain.GenerateT();
+			}
 			GuiStyle.AddSpace();
 		}
 	}
